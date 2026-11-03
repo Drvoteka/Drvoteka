@@ -77,7 +77,7 @@ sr:{
  o_full_k:'Detaljan upit',o_full_h:'Opišite svoj projekat',o_full_p:"Navedite komad, mere i drvo da bismo odmah dali precizniju procenu.",o_full_1:'Vrsta nameštaja i dimenzije',o_full_2:'Drvo i završna obrada',o_full_3:'Skice i fotografije prostora',o_full_cta:'Popunite upit',
  o_quick_k:'Brzi upit',o_quick_h:'Pozvaćemo vas',o_quick_p:'Ostavite ime i broj telefona, a detalje dogovaramo u razgovoru.',o_quick_cta:'Ostavite broj',
  m_title:'Upit',m_tab_quick:'Brzi upit',m_tab_full:'Detaljan upit',m_quick_p:'Ostavite ime i broj, javićemo se u najkraćem roku.',m_quick_send:'Pozovite me',
- g_what:'Šta pravimo',g_size:'Dimenzije',g_mat:'Materijal',g_desc:'Opis i skice',g_contact:'Kontakt',g_via:'Kako da vas kontaktiramo',
+ g_what:'Šta pravimo',g_size:'Dimenzije',g_mat:'Materijal',g_desc:'Opis i skice',g_contact:'Kontakt',g_via:'Kako da vas kontaktiramo (opciono)',
  d_w:'Širina',d_add:'Dodaj dimenzije',d_item:'Komad',d_remove:'Ukloni',d_d:'Dubina',d_h:'Visina',d_hint:'Približne mere su dovoljne, tačne uzimamo na licu mesta.',
  types:['Kuhinja','Sto','Komoda','Orman','Garderober','Kupatilo','Poslovni prostor','Drugo'],
  mats:['Hrast','Orah','Jasen','Trešnja','Bukva','Bagrem','Savetujte me'],fins:['Ulje','Vosak','Lak','Toniranje','Svejedno'],
@@ -138,7 +138,7 @@ en:{
  o_full_k:'Detailed inquiry',o_full_h:'Describe your project',o_full_p:"Tell us the piece, size and wood so we can give a more precise estimate right away.",o_full_1:'Type of furniture and dimensions',o_full_2:'Wood and finish',o_full_3:'Sketches and photos of the space',o_full_cta:'Fill in the inquiry',
  o_quick_k:'Quick inquiry',o_quick_h:'We’ll call you',o_quick_p:'Leave your name and phone number, and we’ll discuss the details on the call.',o_quick_cta:'Leave your number',
  m_title:'Inquiry',m_tab_quick:'Quick',m_tab_full:'Detailed',m_quick_p:'Leave your name and number, and we’ll get back to you shortly.',m_quick_send:'Call me back',
- g_what:'What are we making',g_size:'Dimensions',g_mat:'Material',g_desc:'Description and sketches',g_contact:'Contact',g_via:'How should we contact you',
+ g_what:'What are we making',g_size:'Dimensions',g_mat:'Material',g_desc:'Description and sketches',g_contact:'Contact',g_via:'How should we contact you (optional)',
  d_w:'Width',d_add:'Add dimensions',d_item:'Piece',d_remove:'Remove',d_d:'Depth',d_h:'Height',d_hint:'Approximate sizes are enough, we measure on site.',
  types:['Kitchen','Table','Sideboard','Cabinet','Wardrobe','Bathroom','Commercial space','Other'],
  mats:['Oak','Walnut','Ash','Cherry','Beech','Acacia','Advise me'],fins:['Oil','Wax','Lacquer','Staining','No preference'],
@@ -199,7 +199,7 @@ ru:{
  o_full_k:'Подробная заявка',o_full_h:'Опишите проект',o_full_p:"Укажите изделие, размеры и дерево, чтобы мы сразу точнее оценили работу.",o_full_1:'Тип мебели и размеры',o_full_2:'Порода дерева и отделка',o_full_3:'Эскизы и фото помещения',o_full_cta:'Заполнить заявку',
  o_quick_k:'Быстрая заявка',o_quick_h:'Мы вам перезвоним',o_quick_p:'Оставьте имя и номер телефона, детали обсудим в разговоре.',o_quick_cta:'Оставить номер',
  m_title:'Заявка',m_tab_quick:'Быстрая',m_tab_full:'Подробная',m_quick_p:'Оставьте имя и номер, мы свяжемся с вами в ближайшее время.',m_quick_send:'Перезвоните мне',
- g_what:'Что делаем',g_size:'Размеры',g_mat:'Материал',g_desc:'Описание и эскизы',g_contact:'Контакты',g_via:'Как с вами связаться',
+ g_what:'Что делаем',g_size:'Размеры',g_mat:'Материал',g_desc:'Описание и эскизы',g_contact:'Контакты',g_via:'Как с вами связаться (по желанию)',
  d_w:'Ширина',d_add:'Добавить размер',d_item:'Изделие',d_remove:'Удалить',d_d:'Глубина',d_h:'Высота',d_hint:'Достаточно примерных размеров, точные снимем на замере.',
  types:['Кухня','Стол','Комод','Шкаф','Гардеробная','Ванная','Коммерческий интерьер','Другое'],
  mats:['Дуб','Орех','Ясень','Вишня','Бук','Акация','Посоветуйте'],fins:['Масло','Воск','Лак','Тонирование','Не важно'],
@@ -463,7 +463,7 @@ async function send(form){
 async function send2(form){
   const sr=T.sr,fd=new FormData(form),out=new FormData();
   const pick=(k,arr)=>{const v=fd.get(k);return v!==null&&v!==''&&arr&&arr[+v]!=null?arr[+v]:''};
-  const quick=form.id==='fQuick';
+  const quick=form.id==='fQuick';let extra=[];
   out.append('_subject',(quick?'Brzi upit':'Detaljan upit')+' — '+fd.get('name'));
   out.append('_template','table');out.append('_captcha','false');
   out.append('Forma',quick?'Brzi upit (pozovite me)':'Detaljan upit');
@@ -479,14 +479,25 @@ async function send2(form){
     const list=[...(form.files?form.files.files:[])].slice(0,8);
     const prepared=await Promise.all(list.map(shrinkImg));
     if(prepared.reduce((a,x)=>a+x.size,0)>MAX_UPLOAD){toast(BIG_ERR[lang]||BIG_ERR.sr);return}
-    prepared.forEach(x=>out.append('attachment',x,x.name));
+    if(prepared[0])out.append('attachment',prepared[0],prepared[0].name);
+    extra=prepared.slice(1);
   }
   out.append('Jezik sajta',lang);out.append('Strana',location.href);
   const btn=form.querySelector('.submit');
   try{
     if(out.has('attachment')){
       /* FormSubmit AJAX ne prima fajlove -> običan multipart POST (odgovor je neproziran) */
-      await fetch(LEAD_ENDPOINT.replace('/ajax/','/'),{method:'POST',body:out,mode:'no-cors'});
+      const U=LEAD_ENDPOINT.replace('/ajax/','/');
+      await fetch(U,{method:'POST',body:out,mode:'no-cors'});
+      /* FormSubmit prima jedan fajl po zahtevu -> ostale fotke idu kao zasebni mejlovi */
+      for(let i=0;i<extra.length;i++){
+        const o=new FormData();
+        o.append('_subject','Foto '+(i+2)+'/'+(extra.length+1)+' — '+fd.get('name'));
+        o.append('_template','table');o.append('_captcha','false');
+        o.append('Ime',fd.get('name'));o.append('Telefon',fd.get('phone'));
+        o.append('attachment',extra[i],extra[i].name);
+        await fetch(U,{method:'POST',body:o,mode:'no-cors'}).catch(()=>{});
+      }
     }else{
       const r=await fetch(LEAD_ENDPOINT,{method:'POST',body:out,headers:{Accept:'application/json'}});
       const j=await r.json().catch(()=>({}));
@@ -530,3 +541,31 @@ addEventListener('keydown',e=>{if(!cModal.classList.contains('on'))return;
 
 /* run the process light only while visible */
 if('IntersectionObserver' in window){const so=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('run');so.disconnect()}}),{rootMargin:'0px 0px -10% 0px'});so.observe($('#steps'))}else $('#steps').classList.add('run');
+
+/* PC: klik na "Pozovite" otvara prozor sa brojem; na telefonu ostaje poziv (tel:) */
+(function(){
+  const isTouch=()=>matchMedia('(hover:none) and (pointer:coarse)').matches;
+  const L={sr:['Pozovite nas','Kopiraj broj','Zatvori','Radno vreme: pozovite ili pošaljite upit'],en:['Call us','Copy number','Close',''],ru:['Позвоните нам','Скопировать номер','Закрыть','']};
+  const st=document.createElement('style');
+  st.textContent='.pscrim{position:fixed;inset:0;z-index:400;background:rgba(8,6,5,.6);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);display:none}.pbox{position:fixed;z-index:410;left:50%;top:50%;transform:translate(-50%,-50%);width:min(380px,calc(100vw - 32px));padding:26px;background:var(--bg2);border:1px solid var(--line2);border-radius:14px;box-shadow:0 40px 100px rgba(0,0,0,.5);display:none;text-align:center}.pscrim.on,.pbox.on{display:block}.pbox h3{font-size:24px;margin-bottom:10px}.pbox .num{display:block;font-size:30px;letter-spacing:.02em;margin:6px 0 18px;color:var(--fg)}.pbox .row{display:flex;gap:10px;justify-content:center}.pbox button{padding:11px 18px;border-radius:999px;border:1px solid var(--line2);color:var(--fg);font-size:14.5px}';
+  document.head.appendChild(st);
+  const sc=document.createElement('div');sc.className='pscrim';
+  const bx=document.createElement('div');bx.className='pbox';bx.setAttribute('role','dialog');bx.setAttribute('aria-modal','true');
+  bx.innerHTML='<h3></h3><a class="num"></a><div class="row"><button type="button" data-a="copy"></button><button type="button" data-a="close"></button></div>';
+  document.body.append(sc,bx);
+  const close=()=>{sc.classList.remove('on');bx.classList.remove('on')};
+  sc.onclick=close;
+  addEventListener('keydown',e=>{if(e.key==='Escape')close()});
+  bx.addEventListener('click',e=>{const a=e.target.dataset.a;if(a==='close')close();
+    if(a==='copy'){(navigator.clipboard?navigator.clipboard.writeText(CONTACT.phone):Promise.reject()).catch(()=>{}).finally(()=>{close();toast(T[lang].t_copied)})}});
+  document.addEventListener('click',e=>{
+    const a=e.target.closest('a.k-phone-link, .clinks a[href^="tel:"]');
+    if(!a||isTouch())return;
+    e.preventDefault();e.stopPropagation();
+    const t=L[lang]||L.sr;
+    bx.querySelector('h3').textContent=t[0];
+    const n=bx.querySelector('.num');n.textContent=CONTACT.phone;n.href='tel:'+CONTACT.phoneRaw;
+    bx.querySelector('[data-a=copy]').textContent=t[1];bx.querySelector('[data-a=close]').textContent=t[2];
+    sc.classList.add('on');bx.classList.add('on');
+  },true);
+})();
