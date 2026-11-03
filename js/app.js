@@ -484,9 +484,14 @@ async function send2(form){
   out.append('Jezik sajta',lang);out.append('Strana',location.href);
   const btn=form.querySelector('.submit');
   try{
-    const r=await fetch(LEAD_ENDPOINT,{method:'POST',body:out,headers:{Accept:'application/json'}});
-    const j=await r.json().catch(()=>({}));
-    if(!r.ok||j.success==='false'||j.success===false)throw 0;
+    if(out.has('attachment')){
+      /* FormSubmit AJAX ne prima fajlove -> običan multipart POST (odgovor je neproziran) */
+      await fetch(LEAD_ENDPOINT.replace('/ajax/','/'),{method:'POST',body:out,mode:'no-cors'});
+    }else{
+      const r=await fetch(LEAD_ENDPOINT,{method:'POST',body:out,headers:{Accept:'application/json'}});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok||j.success==='false'||j.success===false)throw 0;
+    }
     done(form);
   }catch(err){toast(SEND_ERR[lang]||SEND_ERR.sr)}
   finally{btn.disabled=false}
