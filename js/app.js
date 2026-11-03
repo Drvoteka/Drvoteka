@@ -440,6 +440,7 @@ function done(form){
 /* ===== Slanje upita na e-mail (FormSubmit) ===== */
 const LEAD_ENDPOINT='https://formsubmit.co/ajax/'+CONTACT.mail;
 const SEND_ERR={sr:'Slanje nije uspelo. Pozovite nas ili pokušajte ponovo.',en:'Sending failed. Please call us or try again.',ru:'Не удалось отправить. Позвоните нам или попробуйте ещё раз.'};
+const SENDING={sr:'Šaljem…',en:'Sending…',ru:'Отправляю…'};
 const MAX_UPLOAD=4.6*1024*1024;
 const BIG_ERR={sr:'Fajlovi su preveliki (maks. ~4,5 MB). Uklonite neke ili pošaljite na e-mail.',en:'Files are too large (max ~4.5 MB). Remove some or email them to us.',ru:'Файлы слишком большие (макс. ~4,5 МБ). Уберите часть или отправьте на почту.'};
 function shrinkImg(file){
@@ -456,9 +457,30 @@ function shrinkImg(file){
     img.src=u;
   });
 }
+
+/* jedan ZIP umesto više priloga (FormSubmit prosleđuje samo jedan fajl) */
+const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+function crc32(u){let c=~0;for(let i=0;i<u.length;i++)c=CRC[(c^u[i])&255]^(c>>>8);return(~c)>>>0}
+async function makeZip(files){
+  const enc=new TextEncoder(),parts=[],cd=[];let off=0;
+  const u16=n=>[n&255,(n>>8)&255],u32=n=>[n&255,(n>>8)&255,(n>>16)&255,(n>>>24)&255];
+  for(let i=0;i<files.length;i++){
+    const f=files[i],data=new Uint8Array(await f.arrayBuffer()),crc=crc32(data);
+    const nm=enc.encode((i+1)+'_'+f.name.replace(/[^\w.\-]+/g,'_'));
+    const lh=new Uint8Array([0x50,0x4b,3,4,20,0,0,8,0,0,0,0,0,0,...u32(crc),...u32(data.length),...u32(data.length),...u16(nm.length),0,0]);
+    parts.push(lh,nm,data);
+    cd.push(new Uint8Array([0x50,0x4b,1,2,20,0,20,0,0,8,0,0,0,0,0,0,...u32(crc),...u32(data.length),...u32(data.length),...u16(nm.length),0,0,0,0,0,0,0,0,0,0,0,0,...u32(off)]),nm);
+    off+=lh.length+nm.length+data.length;
+  }
+  const cdSize=cd.reduce((a,x)=>a+x.length,0);
+  const end=new Uint8Array([0x50,0x4b,5,6,0,0,0,0,...u16(files.length),...u16(files.length),...u32(cdSize),...u32(off),0,0]);
+  return new Blob([...parts,...cd,end],{type:'application/zip'});
+}
 async function send(form){
   const btn0=form.querySelector('.submit');btn0.disabled=true;
-  try{await send2(form)}finally{btn0.disabled=false}
+  const html0=btn0.innerHTML;btn0.classList.add('loading');btn0.setAttribute('aria-busy','true');
+  btn0.innerHTML='<span class="spin"></span><span>'+(SENDING[lang]||SENDING.sr)+'</span>';
+  try{await send2(form)}finally{btn0.disabled=false;btn0.classList.remove('loading');btn0.removeAttribute('aria-busy');btn0.innerHTML=html0}
 }
 async function send2(form){
   const sr=T.sr,fd=new FormData(form),out=new FormData();
@@ -479,8 +501,8 @@ async function send2(form){
     const list=[...(form.files?form.files.files:[])].slice(0,8);
     const prepared=await Promise.all(list.map(shrinkImg));
     if(prepared.reduce((a,x)=>a+x.size,0)>MAX_UPLOAD){toast(BIG_ERR[lang]||BIG_ERR.sr);return}
-    if(prepared[0])out.append('attachment',prepared[0],prepared[0].name);
-    extra=prepared.slice(1);
+    if(prepared.length===1)out.append('attachment',prepared[0],prepared[0].name);
+    else if(prepared.length>1)out.append('attachment',await makeZip(prepared),'fotke.zip');
   }
   out.append('Jezik sajta',lang);out.append('Strana',location.href);
   const btn=form.querySelector('.submit');
@@ -489,15 +511,6 @@ async function send2(form){
       /* FormSubmit AJAX ne prima fajlove -> običan multipart POST (odgovor je neproziran) */
       const U=LEAD_ENDPOINT.replace('/ajax/','/');
       await fetch(U,{method:'POST',body:out,mode:'no-cors'});
-      /* FormSubmit prima jedan fajl po zahtevu -> ostale fotke idu kao zasebni mejlovi */
-      for(let i=0;i<extra.length;i++){
-        const o=new FormData();
-        o.append('_subject','Foto '+(i+2)+'/'+(extra.length+1)+' — '+fd.get('name'));
-        o.append('_template','table');o.append('_captcha','false');
-        o.append('Ime',fd.get('name'));o.append('Telefon',fd.get('phone'));
-        o.append('attachment',extra[i],extra[i].name);
-        await fetch(U,{method:'POST',body:o,mode:'no-cors'}).catch(()=>{});
-      }
     }else{
       const r=await fetch(LEAD_ENDPOINT,{method:'POST',body:out,headers:{Accept:'application/json'}});
       const j=await r.json().catch(()=>({}));
@@ -569,3 +582,6 @@ if('IntersectionObserver' in window){const so=new IntersectionObserver(es=>es.fo
     sc.classList.add('on');bx.classList.add('on');
   },true);
 })();
+(function(){const st=document.createElement('style');
+st.textContent='.submit.loading{pointer-events:none;opacity:.9;display:inline-flex;align-items:center;justify-content:center;gap:10px}.submit .spin{width:16px;height:16px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:dspin .7s linear infinite;flex:none}@keyframes dspin{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){.submit .spin{animation-duration:1.6s}}';
+document.head.appendChild(st)})();
